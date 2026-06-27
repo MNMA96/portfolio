@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>marwan@network:~$ portfolio</title>
+<style>
+  :root{
+    --bg:#000;
+    --green:#00ff41;
+    --green-dim:#00b32d;
+    --green-dark:#008f23;
+    --green-faint:#0a3d14;
+    --fg:#9bffb0;
+    --dim:#2e7d3a;
+    --amber:#aaff66;
+    --panel:rgba(0,14,3,.72);
+    --border:#0d3d18;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--fg);
+    font-family:'Courier New','Cascadia Code','Fira Code',monospace;
+    font-size:14px;line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+    overflow-x:hidden;
+  }
+  /* matrix canvas sits behind everything */
+  #matrix{position:fixed;inset:0;z-index:0;display:block;}
+  .vignette{position:fixed;inset:0;z-index:1;pointer-events:none;
+    background:radial-gradient(ellipse 70% 80% at center,rgba(0,0,0,.55) 0%,rgba(0,0,0,.35) 45%,rgba(0,0,0,.7) 100%);}
+  .scanlines::after{content:"";position:fixed;inset:0;z-index:2;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,40,10,.10) 3px,rgba(0,40,10,.10) 3px);}
+  .wrap{position:relative;z-index:3;max-width:900px;margin:0 auto;padding:40px 16px 80px;}
+  .window{
+    background:rgba(0,8,2,.88);
+    border:1px solid var(--border);
+    border-radius:6px;
+    backdrop-filter:blur(6px);
+    box-shadow:0 0 40px rgba(0,0,0,.7),0 0 30px rgba(0,255,65,.08),0 0 1px rgba(0,255,65,.4) inset;
+  }
+  .titlebar{display:flex;align-items:center;gap:8px;padding:10px 14px;
+    border-bottom:1px solid var(--border);background:rgba(0,20,5,.5);}
+  .dot{width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,255,65,.4);}
+  .dot.r{background:#0a0;}.dot.y{background:#0c0;}.dot.g{background:#0f0;box-shadow:0 0 6px #0f0;}
+  .titlebar .name{margin-left:8px;color:var(--green-dim);font-size:12px;flex:1;text-align:center;letter-spacing:.5px;}
+  .dlbtn{display:inline-flex;align-items:center;gap:6px;text-decoration:none;
+    color:var(--green);border:1px solid var(--green-dark);background:rgba(0,40,10,.45);
+    padding:4px 11px;border-radius:4px;font-size:11.5px;letter-spacing:.5px;
+    transition:.15s;white-space:nowrap;}
+  .dlbtn:hover{background:rgba(0,255,65,.15);border-color:var(--green);
+    text-shadow:0 0 6px rgba(0,255,65,.8);box-shadow:0 0 12px rgba(0,255,65,.2);}
+  .dlbtn .ic{font-size:13px;line-height:1;}
+  .body{padding:24px 24px 32px;}
+  .glow{text-shadow:0 0 5px rgba(0,255,65,.6),0 0 12px rgba(0,255,65,.25);}
+  .prompt{color:var(--green);}
+  .prompt .usr{color:var(--green);}
+  .prompt .at{color:var(--green-dark);}
+  .prompt .path{color:var(--amber);}
+  .prompt .br{color:var(--green);}
+  .cmd{color:#cfffd8;}
+  .line{margin:5px 0;}
+  .out{margin:2px 0 24px;padding-left:2px;}
+  .comment{color:var(--dim);}
+  .banner{color:var(--green);font-size:11px;line-height:1.2;white-space:pre;overflow-x:auto;margin-bottom:8px;
+    text-shadow:0 0 6px rgba(0,255,65,.7),0 0 18px rgba(0,255,65,.3);}
+  .role{color:var(--green-dim);margin-bottom:14px;letter-spacing:.5px;}
+  .contactbar{margin:0 0 22px;font-size:13px;display:flex;flex-wrap:wrap;align-items:center;}
+  .contactbar .ci{white-space:nowrap;}
+  .contactbar a{color:var(--green);border-bottom:1px dotted var(--green-dark);}
+  .contactbar a:hover{text-shadow:0 0 6px rgba(0,255,65,.8);border-bottom-color:var(--green);}
+  .contactbar .sep{color:var(--dim);margin:0 10px;}
+  .contactbar .nw{white-space:nowrap;color:var(--green-dim);}
+  .summary{color:var(--fg);margin:2px 0 24px;max-width:740px;opacity:.92;}
+  .kv{display:grid;grid-template-columns:160px 1fr;gap:3px 14px;}
+  .kv .k{color:var(--green-dark);}
+  .kv .v{color:var(--fg);}
+  .tag{display:inline-block;border:1px solid var(--border);background:rgba(0,30,8,.5);
+    color:var(--green);padding:2px 9px;margin:3px 5px 3px 0;border-radius:3px;font-size:12.5px;
+    transition:.15s;}
+  .tag:hover{background:rgba(0,255,65,.12);text-shadow:0 0 6px rgba(0,255,65,.8);border-color:var(--green-dim);}
+  .job{margin-bottom:20px;}
+  .job .co{color:var(--green);font-weight:bold;text-shadow:0 0 5px rgba(0,255,65,.4);}
+  .job .ttl{color:var(--amber);}
+  .job .meta{color:var(--dim);font-size:12.5px;}
+  .job ul{list-style:none;margin-top:6px;}
+  .job li{padding-left:18px;position:relative;margin:3px 0;opacity:.92;}
+  .job li::before{content:">";position:absolute;left:2px;color:var(--green-dark);}
+  .cert{padding-left:20px;position:relative;margin:5px 0;}
+  .cert::before{content:"-";position:absolute;left:0;color:var(--green);top:0;}
+  .cert.wip::before{content:"-";color:var(--amber);}
+  .cert.edu::before{content:"-";color:var(--green-dim);}
+  .cert .y{color:var(--dim);}
+  a{color:var(--green);text-decoration:none;border-bottom:1px dotted var(--green-dark);}
+  a:hover{text-shadow:0 0 6px rgba(0,255,65,.8);border-bottom-color:var(--green);}
+  .cursor{display:inline-block;width:9px;height:17px;background:var(--green);vertical-align:middle;
+    box-shadow:0 0 8px rgba(0,255,65,.8);animation:blink 1s steps(1) infinite;margin-left:4px;}
+  @keyframes blink{50%{opacity:0;}}
+  .hr{border:0;border-top:1px dashed var(--border);margin:26px 0;}
+  /* interactive terminal */
+  .term-hint{color:var(--dim);font-size:12px;margin:0 0 10px;}
+  .term{background:rgba(0,8,2,.6);border:1px solid var(--border);border-radius:5px;
+    padding:12px 14px;min-height:140px;max-height:300px;overflow-y:auto;
+    font-size:13px;cursor:text;}
+  .term-out{margin:0 0 8px;}
+  .term-out .l{margin:2px 0;white-space:pre-wrap;word-break:break-word;}
+  .term-out .ok{color:var(--green);}
+  .term-out .warn{color:var(--amber);}
+  .term-out .err{color:#ff5f56;}
+  .term-out .muted{color:var(--dim);}
+  .term-out .acc{color:var(--amber);}
+  .term-in{display:flex;align-items:center;gap:8px;}
+  .term-in .ps{color:var(--green);white-space:nowrap;}
+  .term-in input{flex:1;background:transparent;border:none;outline:none;
+    color:#cfffd8;font-family:inherit;font-size:13px;caret-color:var(--green);}
+  .term::-webkit-scrollbar{width:8px;}
+  .term::-webkit-scrollbar-thumb{background:var(--green-faint);border-radius:4px;}
+  @media(max-width:560px){.kv{grid-template-columns:1fr;gap:0;}.kv .k{margin-top:8px;}
+    .banner{font-size:7.5px;}.body{padding:16px 14px 24px;}.wrap{padding:20px 10px 60px;}
+    .titlebar .name{display:none;}.titlebar{flex-wrap:wrap;}.dlbtn{margin-left:auto;}}
+  @media (prefers-reduced-motion: reduce){#matrix{display:none;}body{background:#000;}}
+</style>
+</head>
+<body class="scanlines">
+<canvas id="matrix"></canvas>
+<div class="vignette"></div>
+<div class="wrap">
+  <div class="window">
+    <div class="titlebar">
+      <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+      <span class="name">marwan@network: ~/portfolio</span>
+      <a class="dlbtn" href="cv.pdf" download="Marwan_Aloufi_CV.pdf"><span class="ic">&#x2193;</span> Download CV</a>
+    </div>
+    <div class="body" id="app"></div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ⬇⬇⬇  EDIT ONLY THIS BLOCK  ⬇⬇⬇
+   عدّل البيانات هنا فقط. غيّر النص بين علامتي " " فقط.
+   - تضيف خبرة؟ انسخ بلوك { } داخل experience.
+   - تضيف شهادة؟ أضف سطر داخل certifications.
+     type: "cert"=شهادة | "wip"=قيد التنفيذ | "edu"=تعليم
+   - تضيف مهارة؟ أضفها داخل أي مجموعة في skills.
+   ============================================================ */
+const DATA = {
+  profile: {
+    name: "Marwan Aloufi",
+    role: "IT Supervisor | Senior Network & Security Engineer",
+    location: "Madinah, Saudi Arabia",
+    focus: "Enterprise networking \u00b7 Firewall & security \u00b7 Multi-site infrastructure",
+    status: "available"
+  },
+  summary: "Results-driven IT Supervisor and Network & Security Engineer with 5+ years of experience designing, securing, and managing enterprise network infrastructures across multi-site environments. Strong expertise in firewall administration (Palo Alto & FortiGate), network segmentation, VPN technologies, Windows Server, and cloud platforms.",
+  skills: {
+    "networking": ["Cisco","MikroTik","Ubiquiti","Extreme","LAN/WAN/VLAN","Wireless","Fiber Optic"],
+    "network security": ["Palo Alto","FortiGate","SD-WAN","NAT","IPSec VPN","SSL VPN","Segmentation","Forescout NAC","Cisco Umbrella","Hardening"],
+    "systems": ["Windows Server","AD DS","DNS","DHCP","GPO","Linux Server"],
+    "cloud & enterprise": ["Oracle OCI","Google Workspace","Microsoft 365","ERP Systems","Cloud & Local Hosting"],
+    "telephony & infra": ["Avaya IP Office","IP Telephony","Surveillance","Data Centers"],
+    "IT operations": ["Technical Support","Asset Management","ITIL 4","Vendor Coordination"]
+  },
+  experience: [
+    {
+      company: "RUA Al Madinah (Dar AlHijra)",
+      title: "Network & Security Engineer",
+      date: "2026 - Present",
+      meta: "enterprise infrastructure \u00b7 FortiGate \u00b7 OCI \u00b7 security operations",
+      points: [
+        "Designed the full enterprise network for Building C3 (new HQ): VLAN architecture, IP schema, 3-tier topology, and WAN design.",
+        "Administered FortiGate firewalls (901G / FortiOS 7.2): policy analysis, SD-WAN load balancing, NAT, and change requests.",
+        "Built and troubleshot FortiGate-to-OCI IPSec VPN connectivity with DDNS configuration.",
+        "Ran daily and weekly security reporting: traffic analysis, beaconing detection, NAC, and threat investigation.",
+        "Integrated security solutions including Cisco Umbrella and Forescout NAC.",
+        "Delivered a Wi-Fi performance assessment across HQ buildings with executive reporting.",
+        "Produced formal client-facing deliverables: network topology diagrams and technical documentation."
+      ]
+    },
+    {
+      company: "Madac International Schools",
+      title: "IT Supervisor",
+      date: "2024 - Present",
+      meta: "multi-building \u00b7 2 data centers \u00b7 8 control rooms",
+      points: [
+        "Lead and manage IT operations across multi-building infrastructure including 2 data centers and 8 control rooms.",
+        "Oversee enterprise systems (Google Workspace, Microsoft 365, ERP) ensuring availability, security, and performance.",
+        "Manage IT budgets, procurement, and vendor coordination to optimize cost and efficiency.",
+        "Support HR in recruitment, interviews, and onboarding of IT personnel.",
+        "Implement IT policies, security standards, and infrastructure improvement initiatives."
+      ]
+    },
+    {
+      company: "Madac International Schools",
+      title: "Network & Security Engineer",
+      date: "2022 - 2024",
+      meta: "enterprise network \u00b7 firewall \u00b7 multi-site",
+      points: [
+        "Designed, deployed, and maintained enterprise network infrastructure across multiple sites.",
+        "Configured and managed Cisco, MikroTik, Extreme, Ubiquiti, Palo Alto, and FortiGate devices.",
+        "Implemented firewall policies: NAT, IPSec VPN, SSL VPN, user access control, and traffic shaping.",
+        "Applied network segmentation and security hardening to enhance security posture.",
+        "Led fiber optic cabling and infrastructure expansion projects.",
+        "Configured Windows Server (Active Directory, DNS, DHCP, GPO) and administered Linux servers.",
+        "Managed cloud/local hosting (VPN, ERP, web servers, storage), Avaya IP telephony, and surveillance.",
+        "Provided Tier 2/3 technical support and infrastructure troubleshooting."
+      ]
+    },
+    {
+      company: "Abdullah Al Hammad Hotels",
+      title: "IT Support Specialist",
+      date: "2021 - 2022",
+      meta: "hotel IT \u00b7 PMS \u00b7 infrastructure",
+      points: [
+        "Supported hotel IT systems including PMS, Opera, and Oracle-based solutions.",
+        "Configured and troubleshot LAN/WAN/WLAN environments and firewall systems.",
+        "Installed and maintained servers, switches, security cameras, and end-user devices.",
+        "Performed system upgrades, optimization, and preventive maintenance.",
+        "Delivered technical support and resolved customer technical issues."
+      ]
+    }
+  ],
+  certifications: [
+    { title: "Cisco CCNP", type: "cert" },
+    { title: "Cisco CCNA", type: "cert" },
+    { title: "CompTIA Security+", type: "cert" },
+    { title: "ITIL 4", type: "cert" },
+    { title: "Fortinet NSE 4", type: "cert" },
+    { title: "Soft Skills \u2014 MCIT", type: "cert" },
+    { title: "B.Eng Technology \u2014 Computer Network System Support \u2014 TVTC (2020)", type: "edu" },
+    { title: "Associate Degree \u2014 Computer Networks \u2014 Taibah University (2017)", type: "edu" }
+  ],
+  licenses: [
+    { text: "Saudi Council of Engineers", no: "760538" },
+    { text: "Educational Professional License", no: "21100110036109" }
+  ],
+  contact: {
+    email: "marwann.ibrahim96@gmail.com",
+    phone: "+966 54 300 3336",
+    linkedin: "linkedin.com/in/marwan-aloufi-a9844b21b",
+    github: "github.com/MNMA96",
+    location: "Madinah, Saudi Arabia"
+  },
+  languages: ["Arabic","English"]
+};
+/* ============================================================
+   ⬆⬆⬆  END OF EDIT BLOCK — لا تعدّل تحت هذا السطر  ⬆⬆⬆
+   ============================================================ */
+
+
+/* ---------- MATRIX RAIN ---------- */
+(function(){
+  const c=document.getElementById("matrix"),x=c.getContext("2d");
+  let cols,drops,fs=18;
+  const chars="0123456789".split("");
+  function size(){c.width=innerWidth;c.height=innerHeight;cols=Math.floor(c.width/fs);drops=Array(cols).fill(1);}
+  size();addEventListener("resize",size);
+  function draw(){
+    x.fillStyle="rgba(0,0,0,0.10)";x.fillRect(0,0,c.width,c.height);
+    x.font=fs+"px monospace";
+    for(let i=0;i<drops.length;i++){
+      const ch=chars[Math.floor(Math.random()*chars.length)];
+      const y=drops[i]*fs;
+      // leading char brighter, trail dim
+      x.fillStyle=Math.random()>0.985?"#7dffa0":"#0a8f2e";
+      x.fillText(ch,i*fs,y);
+      if(y>c.height&&Math.random()>0.975)drops[i]=0;
+      drops[i]++;
+    }
+  }
+  if(!matchMedia("(prefers-reduced-motion: reduce)").matches) setInterval(draw,85);
+})();
+
+/* ---------- RENDERER ---------- */
+const e=(s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+function prompt(cmd){return `<div class="line"><span class="prompt"><span class="usr">marwan</span><span class="at">@</span><span class="usr">network</span> <span class="path">~</span> <span class="br">$</span></span> <span class="cmd">${e(cmd)}</span></div>`;}
+
+const banner =
+` __  __    _    ____  _    _   _    _    _   _ 
+|  \\/  |  / \\  |  _ \\| |  | | | |  / \\  | \\ | |
+| |\\/| | / _ \\ | |_) | |  | | | | / _ \\ |  \\| |
+| |  | |/ ___ \\|  _ <| |/\\| |_| |/ ___ \\| |\\  |
+|_|  |_/_/   \\_\\_| \\_\\__/\\__\\___/_/   \\_\\_| \\_|`;
+
+let html="";
+html+=`<div class="banner glow">${banner}</div>`;
+html+=`<div class="role glow">// ${e(DATA.profile.role)} \u00b7 ${e(DATA.profile.location)}</div>`;
+
+html+=`<div class="contactbar">`+
+  `<span class="ci"><a href="mailto:${e(DATA.contact.email)}">${e(DATA.contact.email)}</a></span>`+
+  `<span class="ci"><span class="sep">\u00b7</span><a href="tel:${e(DATA.contact.phone).replace(/\s/g,'')}">${e(DATA.contact.phone)}</a></span>`+
+  `<span class="ci"><span class="sep">\u00b7</span><a href="https://${e(DATA.contact.linkedin)}" target="_blank">LinkedIn</a></span>`+
+  `<span class="ci"><span class="sep">\u00b7</span><a href="https://${e(DATA.contact.github)}" target="_blank">GitHub</a></span>`+
+  `<span class="ci"><span class="sep">\u00b7</span><span class="nw">${DATA.languages.map(e).join(" / ")}</span></span>`+
+`</div>`;
+
+html+=prompt("whoami --verbose");
+html+=`<div class="out kv">
+  <span class="k">name</span><span class="v">${e(DATA.profile.name)}</span>
+  <span class="k">role</span><span class="v">${e(DATA.profile.role)}</span>
+  <span class="k">location</span><span class="v">${e(DATA.profile.location)}</span>
+  <span class="k">focus</span><span class="v">${e(DATA.profile.focus)}</span>
+  <span class="k">status</span><span class="v glow" style="color:var(--green)">\u25cf ${e(DATA.profile.status)}</span>
+</div>`;
+
+html+=prompt("cat summary.txt");
+html+=`<div class="summary">${e(DATA.summary)}</div>`;
+
+html+=prompt("cat skills.txt");
+html+=`<div class="out">`;
+let si=0;
+for(const [cat,arr] of Object.entries(DATA.skills)){
+  html+=`<div class="comment"${si>0?' style="margin-top:10px"':''}># ${e(cat)}</div>`;
+  html+=arr.map(t=>`<span class="tag">${e(t)}</span>`).join("");
+  si++;
+}
+html+=`</div>`;
+
+html+=prompt("cat experience.log");
+html+=`<div class="out">`;
+for(const j of DATA.experience){
+  html+=`<div class="job">
+    <div><span class="co">${e(j.company)}</span> <span class="meta">::</span> <span class="ttl">${e(j.title)}</span></div>
+    <div class="meta">${e(j.date)} \u00b7 ${e(j.meta)}</div>
+    <ul>${j.points.map(p=>`<li>${e(p)}</li>`).join("")}</ul>
+  </div>`;
+}
+html+=`</div>`;
+
+html+=prompt("ls -l certifications/");
+html+=`<div class="out">`;
+for(const c of DATA.certifications){
+  const cls=c.type==="wip"?"cert wip":(c.type==="edu"?"cert edu":"cert");
+  const note=c.note?` <span class="y">\u2014 ${e(c.note)}</span>`:"";
+  html+=`<div class="${cls}">${e(c.title)}${note}</div>`;
+}
+html+=`</div>`;
+
+html+=prompt("cat licenses.json");
+html+=`<div class="out kv">`;
+for(const l of DATA.licenses){html+=`<span class="k">${e(l.text)}</span><span class="v">#${e(l.no)}</span>`;}
+html+=`</div>`;
+
+html+=`<hr class="hr">`;
+html+=`<div class="term-hint">// interactive shell — try: <span style="color:var(--green)">help</span>, <span style="color:var(--green)">skills</span>, <span style="color:var(--green)">contact</span></div>`;
+html+=`<div class="term" id="term">
+  <div class="term-out" id="termout"></div>
+  <div class="term-in">
+    <span class="ps">marwan@network ~ $</span>
+    <input id="termin" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="terminal input">
+  </div>
+</div>`;
+
+document.getElementById("app").innerHTML=html;
+
+/* ---------- INTERACTIVE SHELL ---------- */
+(function(){
+  const out=document.getElementById("termout");
+  const inp=document.getElementById("termin");
+  const term=document.getElementById("term");
+  if(!out||!inp) return;
+  const history=[]; let hi=-1;
+
+  function print(lines){
+    (Array.isArray(lines)?lines:[lines]).forEach(l=>{
+      const d=document.createElement("div"); d.className="l";
+      d.innerHTML=l; out.appendChild(d);
+    });
+    term.scrollTop=term.scrollHeight;
+  }
+  function echo(cmd){
+    print(`<span class="ok">marwan@network ~ $</span> ${e(cmd)}`);
+  }
+
+  const COMMANDS={
+    help(){return [
+      '<span class="acc">available commands:</span>',
+      '  <span class="ok">whoami</span>       who is this guy',
+      '  <span class="ok">skills</span>       technical stack',
+      '  <span class="ok">experience</span>   work history',
+      '  <span class="ok">certs</span>        certifications',
+      '  <span class="ok">contact</span>      how to reach me',
+      '  <span class="ok">cv</span>           download my CV (PDF)',
+      '  <span class="ok">clear</span>        clear the screen',
+      '  <span class="muted">// psst... there might be a hidden command</span>'
+    ];},
+    whoami(){return [
+      `<span class="acc">${e(DATA.profile.name)}</span> — ${e(DATA.profile.role)}`,
+      `${e(DATA.profile.location)} · status: <span class="ok">${e(DATA.profile.status)}</span>`,
+      e(DATA.summary)
+    ];},
+    skills(){
+      const r=['<span class="acc">technical stack:</span>'];
+      for(const [cat,arr] of Object.entries(DATA.skills)) r.push(`  <span class="ok">${e(cat)}</span>: ${arr.map(e).join(", ")}`);
+      return r;
+    },
+    experience(){
+      const r=['<span class="acc">work history:</span>'];
+      DATA.experience.forEach(j=>{r.push(`  <span class="ok">${e(j.title)}</span> @ ${e(j.company)} <span class="muted">(${e(j.date)})</span>`);});
+      r.push('<span class="muted">// run "cv" for full details</span>');
+      return r;
+    },
+    certs(){
+      return ['<span class="acc">certifications:</span>'].concat(
+        DATA.certifications.map(c=>`  <span class="ok">-</span> ${e(c.title)}`)
+      );
+    },
+    contact(){return [
+      '<span class="acc">contact:</span>',
+      `  email    <a href="mailto:${e(DATA.contact.email)}">${e(DATA.contact.email)}</a>`,
+      `  phone    ${e(DATA.contact.phone)}`,
+      `  linkedin <a href="https://${e(DATA.contact.linkedin)}" target="_blank">${e(DATA.contact.linkedin)}</a>`,
+      `  github   <a href="https://${e(DATA.contact.github)}" target="_blank">${e(DATA.contact.github)}</a>`
+    ];},
+    cv(){window.open("cv.pdf","_blank");return '<span class="ok">opening cv.pdf ...</span>';},
+    clear(){out.innerHTML="";return null;},
+    ls(){return 'whoami  skills  experience  certs  contact  cv';},
+    pwd(){return '/home/marwan/portfolio';},
+    date(){return new Date().toString();},
+    echo(a){return e(a.join(" "));},
+    "sudo"(a){
+      if(a.join(" ").toLowerCase()==="hire-me"){
+        return [
+          '<span class="warn">[sudo] authenticating candidate...</span>',
+          '<span class="ok">[OK]</span> 5+ years enterprise networking ........ verified',
+          '<span class="ok">[OK]</span> FortiGate / Palo Alto / Cisco ......... verified',
+          '<span class="ok">[OK]</span> security mindset ...................... verified',
+          '<span class="acc">>> access granted. excellent decision. let\u2019s talk:</span>',
+          `   <a href="mailto:${e(DATA.contact.email)}">${e(DATA.contact.email)}</a>`
+        ];
+      }
+      return '<span class="err">sudo: permission denied (try: sudo hire-me)</span>';
+    }
+  };
+
+  function run(raw){
+    const parts=raw.trim().split(/\s+/);
+    const cmd=(parts.shift()||"").toLowerCase();
+    if(!cmd) return;
+    if(COMMANDS[cmd]){
+      const res=COMMANDS[cmd](parts);
+      if(res!==null && res!==undefined) print(res);
+    } else {
+      print(`<span class="err">command not found: ${e(cmd)}</span> <span class="muted">— type "help"</span>`);
+    }
+  }
+
+  // greeting
+  print(['<span class="muted">last login: just now on ttys001</span>','Type <span class="ok">help</span> to begin.','']);
+
+  inp.addEventListener("keydown",ev=>{
+    if(ev.key==="Enter"){
+      const v=inp.value;
+      echo(v);
+      if(v.trim()){history.push(v);hi=history.length;}
+      run(v);
+      inp.value="";
+      print('');
+    } else if(ev.key==="ArrowUp"){
+      if(hi>0){hi--;inp.value=history[hi]||"";} ev.preventDefault();
+    } else if(ev.key==="ArrowDown"){
+      if(hi<history.length-1){hi++;inp.value=history[hi]||"";}
+      else{hi=history.length;inp.value="";} ev.preventDefault();
+    }
+  });
+  term.addEventListener("click",()=>inp.focus());
+})();
+
+</script>
+</body>
+</html>
