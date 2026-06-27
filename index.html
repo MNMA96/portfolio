@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>marwan@network:~$ portfolio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='18' fill='%23000'/><text x='50' y='70' font-size='62' font-family='monospace' fill='%2300ff41' text-anchor='middle'>&gt;_</text></svg>">
 <style>
   :root{
     --bg:#000;
@@ -99,6 +100,40 @@
     box-shadow:0 0 8px rgba(0,255,65,.8);animation:blink 1s steps(1) infinite;margin-left:4px;}
   @keyframes blink{50%{opacity:0;}}
   .hr{border:0;border-top:1px dashed var(--border);margin:26px 0;}
+  /* projects */
+  .proj{margin-bottom:14px;}
+  .proj .pn{color:var(--green);font-weight:bold;text-shadow:0 0 5px rgba(0,255,65,.4);}
+  .proj .pt{color:var(--dim);font-size:12px;margin-left:8px;}
+  .proj .pd{color:var(--fg);opacity:.9;margin-top:2px;padding-left:18px;position:relative;}
+  .proj .pd::before{content:">";position:absolute;left:2px;color:var(--green-dark);}
+  /* copy toast */
+  .toast{position:fixed;bottom:54px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:rgba(0,30,8,.95);border:1px solid var(--green-dim);color:var(--green);
+    padding:8px 18px;border-radius:5px;font-size:13px;z-index:60;opacity:0;pointer-events:none;
+    transition:.25s;text-shadow:0 0 6px rgba(0,255,65,.6);box-shadow:0 0 16px rgba(0,255,65,.2);}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .copyable{cursor:pointer;}
+  /* status bar */
+  .statusbar{position:fixed;bottom:0;left:0;right:0;z-index:40;
+    display:flex;align-items:center;gap:14px;
+    background:rgba(0,12,3,.92);border-top:1px solid var(--border);
+    backdrop-filter:blur(6px);padding:6px 16px;font-size:11.5px;color:var(--green-dim);letter-spacing:.4px;}
+  .statusbar .dotlive{width:8px;height:8px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px var(--green);display:inline-block;animation:pulse 2s infinite;}
+  @keyframes pulse{50%{opacity:.4;}}
+  .statusbar .sright{margin-left:auto;}
+  .wrap{padding-bottom:90px;}
+  /* boot overlay */
+  #boot{position:fixed;inset:0;z-index:9998;background:#000;color:var(--green);
+    font-family:'Courier New',monospace;font-size:13px;padding:8vh 8vw;
+    line-height:1.8;transition:opacity .5s;overflow:hidden;}
+  #boot .bl{opacity:0;animation:bootline .25s forwards;}
+  @keyframes bootline{to{opacity:1;}}
+  #boot.done{opacity:0;pointer-events:none;}
+  /* fade-in sections */
+  .reveal{opacity:0;transform:translateY(10px);transition:opacity .5s,transform .5s;}
+  .reveal.in{opacity:1;transform:none;}
+  @media (prefers-reduced-motion: reduce){.reveal{opacity:1;transform:none;}#boot{display:none;}}
   /* interactive terminal */
   .term-hint{color:var(--dim);font-size:12px;margin:0 0 10px;}
   .term{background:rgba(0,8,2,.6);border:1px solid var(--border);border-radius:5px;
@@ -124,6 +159,7 @@
 </style>
 </head>
 <body class="scanlines">
+<div id="boot"></div>
 <canvas id="matrix"></canvas>
 <div class="vignette"></div>
 <div class="wrap">
@@ -236,6 +272,12 @@ const DATA = {
     { text: "Saudi Council of Engineers \u2014 Associate Engineer", no: "760538" },
     { text: "Educational Professional License", no: "21100110036109" }
   ],
+  projects: [
+    { name: "Madac AI Agent", tech: "FastAPI \u00b7 LLM \u00b7 SQL", desc: "AI assistant integrating ERP, student, HR & timetable data with ~99% accuracy across 900+ test questions." },
+    { name: "C3 HQ Network Design", tech: "VLAN \u00b7 SD-WAN \u00b7 3-Tier", desc: "Full enterprise network for a new headquarters: VLAN architecture, IP schema, 3-tier topology, and WAN design." },
+    { name: "FortiGate \u2192 OCI VPN", tech: "IPSec \u00b7 FortiOS \u00b7 OCI", desc: "Site-to-site IPSec VPN linking on-prem FortiGate to Oracle Cloud, including DDNS and security-list tuning." },
+    { name: "Security Reporting Pipeline", tech: "FortiGate \u00b7 Threat Intel", desc: "Daily/weekly firewall traffic analysis: beaconing detection, NAC monitoring, and executive reporting." }
+  ],
   contact: {
     email: "marwann.ibrahim96@gmail.com",
     phone: "+966 54 300 3336",
@@ -289,7 +331,7 @@ html+=`<div class="banner glow">${banner}</div>`;
 html+=`<div class="role glow">// ${e(DATA.profile.role)} \u00b7 ${e(DATA.profile.location)}</div>`;
 
 html+=`<div class="contactbar">`+
-  `<span class="ci"><a href="mailto:${e(DATA.contact.email)}">${e(DATA.contact.email)}</a></span>`+
+  `<span class="ci"><a href="mailto:${e(DATA.contact.email)}" class="copyable" data-copy="${e(DATA.contact.email)}">${e(DATA.contact.email)}</a></span>`+
   `<span class="ci"><span class="sep">\u00b7</span><a href="tel:${e(DATA.contact.phone).replace(/\s/g,'')}">${e(DATA.contact.phone)}</a></span>`+
   `<span class="ci"><span class="sep">\u00b7</span><a href="https://${e(DATA.contact.linkedin)}" target="_blank">LinkedIn</a></span>`+
   `<span class="ci"><span class="sep">\u00b7</span><a href="https://${e(DATA.contact.github)}" target="_blank">GitHub</a></span>`+
@@ -343,6 +385,16 @@ html+=`<div class="out kv">`;
 for(const l of DATA.licenses){html+=`<span class="k">${e(l.text)}</span><span class="v">#${e(l.no)}</span>`;}
 html+=`</div>`;
 
+html+=prompt("ls projects/");
+html+=`<div class="out">`;
+for(const p of DATA.projects){
+  html+=`<div class="proj">
+    <div><span class="pn">${e(p.name)}</span><span class="pt">[${e(p.tech)}]</span></div>
+    <div class="pd">${e(p.desc)}</div>
+  </div>`;
+}
+html+=`</div>`;
+
 html+=`<hr class="hr">`;
 html+=`<div class="term-hint">// interactive shell — try: <span style="color:var(--green)">help</span>, <span style="color:var(--green)">skills</span>, <span style="color:var(--green)">contact</span></div>`;
 html+=`<div class="term" id="term">
@@ -380,7 +432,9 @@ document.getElementById("app").innerHTML=html;
       '  <span class="ok">whoami</span>       who is this guy',
       '  <span class="ok">skills</span>       technical stack',
       '  <span class="ok">experience</span>   work history',
+      '  <span class="ok">projects</span>     things I have built',
       '  <span class="ok">certs</span>        certifications',
+      '  <span class="ok">neofetch</span>     system summary card',
       '  <span class="ok">contact</span>      how to reach me',
       '  <span class="ok">cv</span>           download my CV (PDF)',
       '  <span class="ok">clear</span>        clear the screen',
@@ -406,6 +460,40 @@ document.getElementById("app").innerHTML=html;
       return ['<span class="acc">certifications:</span>'].concat(
         DATA.certifications.map(c=>`  <span class="ok">-</span> ${e(c.title)}`)
       );
+    },
+    projects(){
+      const r=['<span class="acc">projects:</span>'];
+      DATA.projects.forEach(p=>{r.push(`  <span class="ok">${e(p.name)}</span> <span class="muted">[${e(p.tech)}]</span>`);r.push(`    ${e(p.desc)}`);});
+      return r;
+    },
+    neofetch(){
+      const exp=DATA.experience.length, cert=DATA.certifications.length, proj=DATA.projects.length;
+      const logo=[
+        '<span class="ok">      _nnnn_      </span>',
+        '<span class="ok">     dGGGGMMb     </span>',
+        '<span class="ok">    @p~qp~~qMb    </span>',
+        '<span class="ok">    M|@||@) M|    </span>',
+        '<span class="ok">    @,----.JM|    </span>',
+        '<span class="ok">   JS^\\__/  qKL   </span>',
+        '<span class="ok">  dZP        qKRb </span>',
+        '<span class="ok"> dZP          qKKb</span>'
+      ];
+      const info=[
+        `<span class="acc">marwan</span>@<span class="acc">network</span>`,
+        `-----------------`,
+        `<span class="ok">Role</span>: ${e(DATA.profile.role)}`,
+        `<span class="ok">Location</span>: ${e(DATA.profile.location)}`,
+        `<span class="ok">Focus</span>: Networking \u00b7 Security \u00b7 Cloud`,
+        `<span class="ok">Experience</span>: 5+ years`,
+        `<span class="ok">Roles</span>: ${exp} \u00b7 <span class="ok">Certs</span>: ${cert} \u00b7 <span class="ok">Projects</span>: ${proj}`,
+        `<span class="ok">Stack</span>: FortiGate, Palo Alto, Cisco, OCI`,
+        `<span class="ok">Status</span>: available for opportunities`
+      ];
+      const rows=[];
+      for(let i=0;i<Math.max(logo.length,info.length);i++){
+        rows.push(`${logo[i]||'                  '}   ${info[i]||''}`);
+      }
+      return rows;
     },
     contact(){return [
       '<span class="acc">contact:</span>',
@@ -468,6 +556,81 @@ document.getElementById("app").innerHTML=html;
   term.addEventListener("click",()=>inp.focus());
 })();
 
+/* ---------- BOOT SEQUENCE ---------- */
+(function(){
+  const boot=document.getElementById("boot");
+  if(!boot||matchMedia("(prefers-reduced-motion: reduce)").matches){ if(boot)boot.classList.add("done"); return; }
+  const lines=[
+    "marwan@network — boot sequence",
+    "",
+    "[<span style='color:#7dffa0'>  OK  </span>] Initializing network interfaces ...",
+    "[<span style='color:#7dffa0'>  OK  </span>] Loading firewall policies (FortiGate / Palo Alto) ...",
+    "[<span style='color:#7dffa0'>  OK  </span>] Establishing IPSec tunnels ...",
+    "[<span style='color:#7dffa0'>  OK  </span>] Mounting /home/marwan/portfolio ...",
+    "[<span style='color:#7dffa0'>  OK  </span>] Starting profile service ...",
+    "",
+    "<span style='color:#7dffa0'>ready.</span> launching ..."
+  ];
+  let i=0;
+  function next(){
+    if(i<lines.length){
+      const d=document.createElement("div");
+      d.className="bl"; d.innerHTML=lines[i]||"&nbsp;";
+      boot.appendChild(d); i++;
+      setTimeout(next, lines[i-1]===""?80:160);
+    } else {
+      setTimeout(()=>boot.classList.add("done"),450);
+      setTimeout(()=>boot.remove(),1000);
+    }
+  }
+  next();
+})();
+
+/* ---------- LIVE CLOCK ---------- */
+(function(){
+  const el=document.getElementById("clock"); if(!el)return;
+  function tick(){
+    const d=new Date();
+    el.textContent=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  }
+  tick(); setInterval(tick,1000);
+})();
+
+/* ---------- CLICK TO COPY EMAIL ---------- */
+(function(){
+  const toast=document.getElementById("toast");
+  document.addEventListener("click",ev=>{
+    const t=ev.target.closest(".copyable");
+    if(!t)return;
+    ev.preventDefault();
+    const val=t.getAttribute("data-copy");
+    const done=()=>{ if(toast){toast.classList.add("show");setTimeout(()=>toast.classList.remove("show"),1400);} };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(val).then(done).catch(done);
+    } else {
+      const ta=document.createElement("textarea");ta.value=val;document.body.appendChild(ta);
+      ta.select();try{document.execCommand("copy");}catch(e){}ta.remove();done();
+    }
+  });
+})();
+
+/* ---------- FADE-IN REVEAL ---------- */
+(function(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  const blocks=document.querySelectorAll("#app .out, #app .summary, #app .contactbar");
+  blocks.forEach(b=>b.classList.add("reveal"));
+  const io=new IntersectionObserver((ents)=>{
+    ents.forEach(en=>{ if(en.isIntersecting){en.target.classList.add("in");io.unobserve(en.target);} });
+  },{threshold:.08});
+  blocks.forEach(b=>io.observe(b));
+})();
+
 </script>
+<div class="toast" id="toast">copied &#x2713;</div>
+<div class="statusbar">
+  <span><span class="dotlive"></span> online</span>
+  <span>Madinah, KSA</span>
+  <span class="sright" id="clock"></span>
+</div>
 </body>
 </html>
